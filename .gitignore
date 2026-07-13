@@ -1,0 +1,14 @@
+# macOS
+.DS_Store
+
+# sqlmap runtime/session artifacts (regenerated on each run)
+sqlmap-output/web/session.sqlite
+sqlmap-output/web/log
+
+# Editor/IDE
+.vscode/
+.idea/
+
+# Env / secrets
+*.env
+.env

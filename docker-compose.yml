@@ -1,0 +1,59 @@
+# Two-container lab: MariaDB + PHP/Apache. Nothing installed on the host.
+#   docker compose up --build      -> http://localhost/crypto-tracker/
+#   docker compose down            -> stop
+#   docker compose down -v         -> stop AND wipe the DB (fresh reseed next up)
+
+services:
+  db:
+    image: mariadb:11
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: root
+      MARIADB_DATABASE: crypto_tracker
+      MARIADB_USER: crypto
+      MARIADB_PASSWORD: cryptopass
+    volumes:
+      # Seeds the schema + data on first boot (fresh volume only).
+      - ./crypto-tracker/db.sql:/docker-entrypoint-initdb.d/db.sql:ro
+      - dbdata:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+
+  web:
+    build: .
+    restart: unless-stopped
+    ports:
+      # host:container. Change the left side to e.g. "8080:80" if port 80 is
+      # taken — but then browse to http://localhost:8080/crypto-tracker/ and
+      # update the URLs inside attacker/*.html to match.
+      - "80:80"
+    environment:
+      DB_HOST: db
+      DB_USER: crypto
+      DB_PASS: cryptopass
+      DB_NAME: crypto_tracker
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # On-demand exploit tool — NOT started by `up` (gated behind a profile).
+  # Reaches the app by service name `web` on the shared compose network, and
+  # writes its output to ./sqlmap-output on the host for report evidence.
+  #   docker compose run --rm sqlmap -u "http://web/crypto-tracker/search.php?q=BTC" \
+  #        --output-dir=/output --batch --dbs
+  # (pass --output-dir=/output so results land in ./sqlmap-output on the host)
+  sqlmap:
+    build:
+      context: .
+      dockerfile: Dockerfile.sqlmap
+    profiles: ["tools"]
+    volumes:
+      - ./sqlmap-output:/output
+    depends_on:
+      - web
+
+volumes:
+  dbdata:

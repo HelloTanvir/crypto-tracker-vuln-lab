@@ -1,0 +1,80 @@
+/* style.css — minimal dark theme, shared across all pages */
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    background: #12151c;
+    color: #e6e8ee;
+    line-height: 1.5;
+}
+
+.nav {
+    background: #1b1f2a;
+    border-bottom: 1px solid #2a3040;
+    padding: 12px 24px;
+    display: flex;
+    gap: 18px;
+    align-items: center;
+}
+.nav a { color: #9fb4ff; text-decoration: none; font-weight: 500; }
+.nav a:hover { text-decoration: underline; }
+.nav .brand { font-weight: 700; color: #fff; margin-right: auto; }
+
+.wrap { max-width: 900px; margin: 32px auto; padding: 0 24px; }
+
+h1, h2 { color: #fff; font-weight: 600; }
+
+.card {
+    background: #1b1f2a;
+    border: 1px solid #2a3040;
+    border-radius: 10px;
+    padding: 24px;
+    margin-bottom: 24px;
+}
+
+label { display: block; margin: 12px 0 4px; font-size: 14px; color: #b6bdcc; }
+input, select, textarea {
+    width: 100%;
+    padding: 9px 11px;
+    background: #12151c;
+    border: 1px solid #2a3040;
+    border-radius: 6px;
+    color: #e6e8ee;
+    font-size: 14px;
+}
+textarea { min-height: 70px; resize: vertical; }
+
+button, .btn {
+    display: inline-block;
+    margin-top: 16px;
+    padding: 9px 18px;
+    background: #3b5bdb;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+}
+button:hover, .btn:hover { background: #4c6ef5; }
+.btn-danger { background: #c92a2a; }
+.btn-danger:hover { background: #e03131; }
+.btn-sm { padding: 4px 10px; font-size: 12px; margin-top: 0; }
+
+table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #2a3040; }
+th { color: #9aa3b5; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; }
+
+.total { font-size: 20px; font-weight: 700; color: #fff; margin-top: 16px; }
+.profit { color: #40c057; }
+.loss { color: #fa5252; }
+
+.msg { padding: 10px 14px; border-radius: 6px; margin-bottom: 16px; }
+.msg-err { background: #3a1d1d; border: 1px solid #c92a2a; color: #ffc9c9; }
+.msg-ok  { background: #1d3a24; border: 1px solid #2f9e44; color: #b2f2bb; }
+
+a.link { color: #9fb4ff; }
+.muted { color: #7a8296; font-size: 13px; }
