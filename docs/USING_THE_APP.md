@@ -110,12 +110,17 @@ ready-made proof-of-concept pages live in `crypto-tracker/attacker/`.
 **Setup:** log in as a victim (e.g. `bob`) in your browser and keep the tab
 open. Note their current holdings on the dashboard.
 
-**a) Silent delete via GET** — open the file `crypto-tracker/attacker/csrf_delete.html`
-in the same browser (double-click it, or drag it into a tab). It loads a hidden
-`<img src=".../delete_holding.php?id=1">`.
+**a) Silent delete via GET** — browse to
+`http://localhost/crypto-tracker/attacker/csrf_delete.html` in the same browser.
+The page fetches the victim's own dashboard, scrapes the id of the **first**
+holding, and fires `delete_holding.php?id=<that id>` — no hardcoded id, so it
+always kills the top holding whatever it is.
 
-✅ Reload the dashboard — the targeted holding is gone. The victim never clicked
+✅ Reload the dashboard — the first holding is gone. The victim never clicked
 anything.
+
+> Serve it under the app's host (`http://localhost/...`) so the dashboard read
+> is same-origin; opening it as a bare `file://` blocks that read step.
 
 **b) Account takeover + stored XSS** — open
 `crypto-tracker/attacker/csrf_addpw.html`. Two hidden auto-submitting forms fire:
@@ -124,6 +129,10 @@ stored-XSS holding.
 
 ✅ The victim's password is now `hacked123` (log out and prove it), and a
 malicious holding appears in their portfolio.
+
+**c) Both at once** — open `crypto-tracker/attacker/csrf_all.html` to run the
+dynamic delete **and** the password change **and** the XSS injection from a
+single page.
 
 > Why it works: no CSRF token is validated and the session cookie has no
 > `SameSite` restriction, so the browser attaches it to the cross-site request.

