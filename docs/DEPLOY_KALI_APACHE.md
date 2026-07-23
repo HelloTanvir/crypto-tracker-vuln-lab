@@ -87,6 +87,37 @@ server.)*
 
 ---
 
+## 5b. Stop the browser caching the attacker PoCs (recommended)
+
+The Docker build ships an Apache rule that sends `Cache-Control: no-store` for
+the `attacker/` directory. Without it, Chrome caches the PoC pages and can
+silently re-run a **stale** `csrf_delete.html` — which looks like "the CSRF did
+nothing". Reproduce that rule natively:
+
+```bash
+sudo a2enmod headers
+sudo cp apache-attacker.conf /etc/apache2/conf-enabled/attacker.conf
+sudo systemctl reload apache2
+```
+
+(`apache-attacker.conf` is in the repo root and targets
+`/var/www/html/crypto-tracker/attacker`, which matches this native layout.)
+
+## 5c. Where the stolen cookies land
+
+The stored-XSS payload exfiltrates `document.cookie` to
+`attacker/collect.php`, which appends it to a `loot/cookie.txt` file. With no
+Docker bind-mount here, that path is on disk directly:
+
+```bash
+cat /var/www/html/crypto-tracker/attacker/loot/cookie.txt
+```
+
+`collect.php` creates the `loot/` dir on first hit; the step-3 `chown www-data`
+is what makes it writable. If nothing appears, re-run that `chown`.
+
+---
+
 ## 6. Browse to it
 
 On the Kali PC itself:
@@ -113,9 +144,10 @@ http://<kali-ip>/crypto-tracker/
 ```
 
 Two caveats:
-- The `attacker/*.html` CSRF PoC pages have `http://localhost/...` hardcoded.
-  To fire them from another machine, edit those files and replace `localhost`
-  with the Kali IP.
+- The `attacker/*.html` CSRF PoC pages — and the stored-XSS cookie-stealer
+  payload that points at `attacker/collect.php` — have `http://localhost/...`
+  hardcoded. To fire them from another machine, replace `localhost` with the
+  Kali IP (in the files, and in any payload you inject by hand).
 - ⚠️ Only do this on an **isolated lab LAN** — this app is intentionally
   exploitable.
 

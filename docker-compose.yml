@@ -35,6 +35,10 @@ services:
       DB_USER: crypto
       DB_PASS: cryptopass
       DB_NAME: crypto_tracker
+    volumes:
+      # Stolen cookies exfiltrated by the stored-XSS payload land here on the
+      # host: ./attacker-loot/cookie.txt (written by attacker/collect.php).
+      - ./attacker-loot:/var/www/html/crypto-tracker/attacker/loot
     depends_on:
       db:
         condition: service_healthy
